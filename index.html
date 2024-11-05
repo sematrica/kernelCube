@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Color Customizer with Small Square Cells</title>
+    <style>
+        body {
+            font-family: 'Tahoma', 'MS Sans Serif', sans-serif;
+            background-color: #000000;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #E0E0E0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Fixed grid overlay with 62x63 small square cells */
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: repeat(62, 1fr); /* 62 columns */
+            grid-template-rows: repeat(63, 1fr); /* 63 rows */
+            gap: 1px; /* Small gap between squares */
+            z-index: 1;
+            background-size: cover;
+            background-position: center;
+            opacity: 0.5;
+        }
+
+        /* Ensure each cell is a perfect square */
+        .grid-cell {
+            background-color: rgba(255, 255, 255, 0.05);
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4px;
+            color: rgba(255, 255, 255, 0.2);
+            aspect-ratio: 1 / 1; /* Ensures each cell is a square */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Popup and controls styling */
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            max-height: 400px;
+            background-color: #333333;
+            border: 2px solid #FF4500;
+            padding: 20px;
+            overflow-y: auto;
+            color: #FFFFFF;
+            z-index: 2;
+        }
+
+        .controls-container {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.9);
+            border-radius: 8px;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: flex-start;
+            z-index: 1;
+        }
+
+        .toggle-button {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            width: 20px;
+            height: 20px;
+            background-color: #FF4500;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .open-popup-btn, .copy-btn, .save-btn, .gradient-btn, .change-red-btn {
+            padding: 5px 10px;
+            background-color: #FF4500;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin: 3px 0;
+            font-size: 0.8em;
+            width: 120px;
+        }
+
+        .save-btn {
+            background-color: #28a745;
+        }
+
+        .config-input {
+            width: 120px;
+            padding: 5px;
+            font-size: 0.8em;
+            margin: 3px 0;
+            border: 1px solid #555555;
+            background-color: #222222;
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body>
+
+<div class="grid-overlay" id="gridOverlay"></div>
+<button class="toggle-button" onclick="toggleControls()"></button>
+
+<div class="controls-container" id="controlsContainer">
+    <button class="open-popup-btn" onclick="openPopup()">Customize Colors</button>
+    <button class="copy-btn" onclick="copyConfig()">Copy Config</button>
+    <input type="text" class="config-input" id="configInput" placeholder="@params">
+    <button class="save-btn" onclick="applyConfig()">Save Config</button>
+    <button class="gradient-btn" onclick="applyGradient()">Red Gradient</button>
+    <input type="file" id="imageUpload" accept="image/*" style="margin-top: 10px;">
+    <button class="save-btn" onclick="setImageAsBackground()">Save Background</button>
+
+    <input type="color" id="newColorInput" value="#00FF00" style="margin-top: 10px;">
+    <button class="change-red-btn" onclick="changeRedCells()">Change Red Cells</button>
+</div>
+
+<div class="popup" id="colorPickerPopup">
+    <h2>Customize Grid Colors</h2>
+    <div id="cellList"></div>
+    <button class="save-btn" onclick="saveColors()">Save</button>
+</div>
+
+<script>
+    const gridOverlay = document.getElementById('gridOverlay');
+    const columns = 62;
+    const rows = 63;
+    const totalCells = columns * rows;
+    const defaultColor = 'rgba(255, 255, 255, 0.05)';
+    const cellColors = Array(totalCells).fill(defaultColor);
+
+    function toggleControls() {
+        const controlsContainer = document.getElementById('controlsContainer');
+        controlsContainer.style.display = controlsContainer.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    // Populate grid cells
+    for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.id = `cell-${i}`;
+        cell.style.backgroundColor = cellColors[i];
+        cell.textContent = i;
+
+        cell.addEventListener('mouseenter', () => {
+            cell.style.backgroundColor = 'rgba(255, 165, 0, 0.3)';
+        });
+        cell.addEventListener('mouseleave', () => {
+            cell.style.backgroundColor = cellColors[i];
+        });
+
+        cell.addEventListener('click', () => {
+            cellColors[i] = 'red';
+            cell.style.backgroundColor = 'red';
+        });
+
+        gridOverlay.appendChild(cell);
+    }
+
+    function openPopup() {
+        const popup = document.getElementById('colorPickerPopup');
+        const cellList = document.getElementById('cellList');
+        cellList.innerHTML = ''; // Clear previous content
+
+        cellColors.forEach((color, index) => {
+            const cellItem = document.createElement('div');
+            cellItem.className = 'cell-item';
+
+            const cellLabel = document.createElement('span');
+            cellLabel.innerText = `Cell ${index}`;
+
+            const colorPicker = document.createElement('input');
+            colorPicker.type = 'color';
+            colorPicker.value = rgbToHex(color);
+            colorPicker.oninput = (e) => {
+                cellColors[index] = e.target.value;
+                document.getElementById(`cell-${index}`).style.backgroundColor = e.target.value;
+            };
+
+            cellItem.appendChild(cellLabel);
+            cellItem.appendChild(colorPicker);
+            cellList.appendChild(cellItem);
+        });
+
+        popup.style.display = 'block';
+    }
+
+    function rgbToHex(rgb) {
+        const match = rgb.match(/\d+/g);
+        return match ? `#${match.map(x => parseInt(x).toString(16).padStart(2, '0')).join('')}` : '#ffffff';
+    }
+
+    function saveColors() {
+        cellColors.forEach((color, index) => {
+            const cell = document.getElementById(`cell-${index}`);
+            cell.style.backgroundColor = color;
+        });
+        document.getElementById('colorPickerPopup').style.display = 'none';
+    }
+
+    function applyGradient() {
+        for (let i = 0; i < totalCells; i++) {
+            const cell = document.getElementById(`cell-${i}`);
+            const intensity = Math.floor((i / totalCells) * 255);
+            cell.style.backgroundColor = `rgb(255, ${intensity}, ${intensity})`;
+            cell.style.color = 'rgba(255, 255, 255, 0.5)';
+            cell.textContent = i;
+        }
+    }
+
+    function setImageAsBackground() {
+        const fileInput = document.getElementById('imageUpload');
+        const file = fileInput.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imageUrl = event.target.result;
+                document.getElementById('gridOverlay').style.backgroundImage = `url(${imageUrl})`;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            alert("Please upload an image first.");
+        }
+    }
+
+    function applyConfig() {
+        const configInput = document.getElementById('configInput').value.trim();
+        if (!configInput) {
+            alert('Please paste or enter a valid configuration.');
+            return;
+        }
+
+        const configEntries = configInput.split(';');
+        configEntries.forEach(entry => {
+            const [cellId, color] = entry.split(':');
+            if (!cellId || !color) return;
+
+            const cellIndex = parseInt(cellId.split('-')[1], 10);
+            if (!isNaN(cellIndex) && cellIndex >= 0 && cellIndex < totalCells) {
+                cellColors[cellIndex] = color.trim();
+                document.getElementById(`cell-${cellIndex}`).style.backgroundColor = color.trim();
+            }
+        });
+        alert('Configuration applied to grid!');
+    }
+
+    function copyConfig() {
+        const config = cellColors
+            .map((color, index) => color !== defaultColor ? `cell-${index}:${color}` : null)
+            .filter(Boolean)
+            .join(';');
+        const configInput = document.getElementById('configInput');
+        configInput.value = config;
+        navigator.clipboard.writeText(config).then(() => {
+            alert('Configuration copied to clipboard!');
+        });
+    }
+
+    function changeRedCells() {
+        const newColor = document.getElementById('newColorInput').value;
+        cellColors.forEach((color, index) => {
+            if (color === 'red') {
+                cellColors[index] = newColor;
+                document.getElementById(`cell-${index}`).style.backgroundColor = newColor;
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
